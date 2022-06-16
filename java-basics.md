@@ -139,7 +139,7 @@ int n = i;   //拆箱
 
 对象的相等一般比较的是内存中存放的内容是否相等。
 
-引用相等一般是他们执行的内存订单是否相等。
+引用相等一般是他们执行的内存地址是否相等。
 
 
 
@@ -337,7 +337,7 @@ StringBuilder每一加同步锁所以是非线程安全的。
 
 intern 方法有什么作用?
 
-String.intern()` 是一个 native（本地）方法，其作用是将指定的字符串对象的引用保存在字符串常量池中，可以简单分为两种情况：
+String.intern() 是一个 native（本地）方法，其作用是将指定的字符串对象的引用保存在字符串常量池中，可以简单分为两种情况：
 
 
 
@@ -387,7 +387,7 @@ finally的代码块一定会执行吗？
 
 <h5>反射
 
-开源通过它获取任意的类的所有属性和方法和调用这些属性和方法的机制。
+它通过它获取任意的类的所有属性和方法和调用这些属性和方法的机制。
 
 反射的应用场景
 
@@ -495,4 +495,455 @@ super:用于从子类访问父类的变量和方法。
 创建一个代理类同样实现这个接口/
 
 将目标对象注入进代理类，然后在代理类的对应订单调用目标类中的对应的方法。这样就可以通过代理类屏蔽掉目标对象的访问。并且可以在方法前后做一些增强。
+
+
+
+
+
+<h5>动态代理
+
+从JVM角度来说，动态代理是在运行时生成类的字节码，并加载到JVM中，
+
+(SpringAOP RPC)
+
+JDK动态代理和CGLIB动态代理
+
+实现动态代理机制
+
+在java动态代理机制中InvocationHandler接口和Proxy类是核心。
+
+Proxy类中使用次数最高的方法是newProxyInstance()，这个方法主要用来生成一个代理对象。
+
+```java
+   public static Object newProxyInstance(ClassLoader loader,
+                                          Class<?>[] interfaces,
+                                          InvocationHandler h)
+        throws IllegalArgumentException
+    {
+        ......
+    }
+```
+
+
+
+这个方法有3个参数(loader：类加载器，interfaces：被代理类实现的一些接口， InvocationHandler h 实现了InvocationHadler接口的对象)
+
+要实现动态代理的话，还必须要实现InvocationHandler来自定义逻辑，当我们的动态代理对象调用一个方法时，这个方法的调用就会被转发到实现InvocationHandler接口类的invoke方法来调用
+
+```java
+public interface InvocationHandler {
+
+    /**
+     * 当你使用代理对象调用方法的时候实际会调用到这个方法
+     */
+    public Object invoke(Object proxy, Method method, Object[] args)
+        throws Throwable;
+}
+```
+
+
+
+invoke（）方法有下面三个参数:
+1.proxy：动态生成代理类。
+
+2.method：与代理类对象调用用的方法相对应。
+
+3.args：当前method方法的参数。
+
+动态代理的实现步骤，
+
+定义一个接口及其实现类:
+
+自定义InvocationHandler并重写invoke(),在方法中我们会调用原生方法(被代理类的方法，并自定义一些二处理逻辑)
+
+通过Proxy.newProxyInstance(ClassLoader loader,Class<?>[] interfaces,InvocationHandler h)方法来代理对象
+
+
+
+invoke（）方法：当我们的动态代理对象调用原生方法的时候，最终实际上调用的invoke()方法。然后invoke()方法替代了我们去调用了被代理对象的原生方法。
+
+获取代理对象的过程类
+
+```java
+public class JdkProxyFactory {
+    public static Object getProxy(Object target) {
+        return Proxy.newProxyInstance(
+                target.getClass().getClassLoader(), // 目标类的类加载
+                target.getClass().getInterfaces(),  // 代理需要实现的接口，可指定多个
+                new DebugInvocationHandler(target)   // 代理对象对应的自定义 InvocationHandler
+        );
+    }
+}
+```
+
+getProxy:主要是通过Proxy.newProxyInstance（）方法老获取代理对象。
+
+CGLIB动态代理机制
+
+JDK动态代理有一个致命的问题就是只能代理实现了接口类。
+
+CGLIB是一个基于ASN的字节码生成库，它允许我们在运行时对字节码进行修改和动态生成。
+
+CGLIB通过继承的方式实现实现代理，在SpringAop中如国目标对象实现了接口，则默认采用JDk动态代理模式，否则采用CGLIB模式。
+
+在CGLIB动态代理机制中MethodInterceptor接口和Enhancer是类的核心。
+
+你需要定义MethodeInterceptor（）并重写interxept方法，intercept用于拦截增强被代理类的方法。
+
+```java
+public interface MethodInterceptor
+extends Callback{
+    // 拦截被代理类中的方法
+    public Object intercept(Object obj, java.lang.reflect.Method method, Object[] args,
+                               MethodProxy proxy) throws Throwable;
+}
+```
+
+1.obj：被代理的对象，需要增强的对象
+
+2.method：被拦截的方法,增强的方法。
+
+4.args:方法入参，
+
+4.proxy：代理调用的原始方法
+
+通过Enhancer类来动态获取被代理类，当代理类调用方法的时候，实际调用的是MethodInterceptor中的intercept方法。
+
+
+
+CGLIB动态代理类的步骤；
+
+定义一个类；
+
+2，定义一个MethodInterceptor并重写intercept方法，intercept用于拦截增强被代理类的方法，和JDK动态代理中的invoke方法类似。
+
+3.通过Enhancer类的create()创建代理类。
+
+
+
+JDK动态代理和CGLIB动态代理对比。
+
+JDK动态代理只能代理实现了的接口的类或者直接代理接口，而CGLIB可以代理未实现任何接口的类，另外CGLIB动态代理是通过生成一个被代理类的子类来拦截被代理类的方法调用，因此不能代理声明final类和方法，
+
+大部分情况下，JDK动态代理的效率更高。
+
+
+
+
+
+
+
+<h5>线程
+
+进程?
+
+进程是程序的一次执行过程。是系统运行程序的基本单位。
+
+线程?
+
+线程与进程相似，但是线程是一个比进程还小的执行单位，一个进程在器执行过程中可以产生多个线程。
+
+多个线程共享进程的堆和方法区资源，但是每一个线程都有自己的程序计数器，虚拟机栈，本地方法栈。
+
+线程被称为最轻量的进程。
+
+一个java程序运行是main线程和多个其他线程间的运行。
+
+进程是相互独立的，线程是会相互影响的，线程的开销小，当不利于资源保护，而进程相反
+
+为什么要使用多线程呢
+
+多核 CPU 时代意味着多个线程可以同时运行，这减少了线程上下文切换的开销。
+
+利用多线程的机制可以大大的提高系统的并发能力及性能。
+
+多线程带来的问题:
+
+内存泄漏，死锁，线程不安全。
+
+生命周期:创建 运行 阻塞 等待 超时 终止
+
+线程创建之后它将处于 **NEW（新建）** 状态，调用 `start()` 方法后开始运行，线程这时候处于 **READY（可运行）** 状态。可运行状态的线程获得了 CPU 时间片（timeslice）后就处于 **RUNNING（运行）** 状态。
+
+当线程执行 `wait()`方法之后，线程进入 **WAITING（等待）** 状态。进入等待状态的线程需要依靠其他线程的通知才能够返回到运行状态，而 **TIMED_WAITING(超时等待)** 状态相当于在等待状态的基础上增加了超时限制，比如通过 `sleep（long millis）`方法或 `wait（long millis）`方法可以将 Java 线程置于 TIMED_WAITING 状态。当超时时间到达后 Java 线程将会返回到 RUNNABLE 状态。当线程调用同步方法时，在没有获取到锁的情况下，线程将会进入到 **BLOCKED（阻塞）** 状态。线程在执行 Runnable 的`run()`方法之后将会进入到 **TERMINATED（终止）** 状态。
+
+切换上下文?
+
+线程在执行过程中会有自己的运行条件和状态，保存当前线程的状态，留待线程下次占用Cpu恢复线程，并加载到下一个将要占用cpu的线程上下文。
+
+主动让出cpu，比如调用了sleep(),wait()
+
+时间片用完，防止一个线程占用cpu的时间过长，
+
+调用了阻塞类型的系统中断，比如请求I/O线程被阻塞，
+
+被终止。
+
+死锁:
+
+多个线程被同时阻塞，它们中的一个或者多个都在等待某一个资源被释放，由于线程被无限期阻塞，因此程序不可能正常终止。
+
+产生死锁的必要条件。
+
+互斥条件，该资源任意时刻只由一个线程占用，
+
+请求与条件保持，一个线程因请求资源而阻塞，对已获取的资源保持不放，
+
+3。不能被剥夺条件，线程以获取的资源在位使用完之前不能·被其他线程剥夺，只有自己使用完毕后才释放资源
+
+4.循环等待条件，若干个线程之间形成一种头尾相接的循环等待资源关系。
+
+如何预防和避免线程死锁
+
+1. **破坏请求与保持条件** ：一次性申请所有的资源。
+2. **破坏不剥夺条件** ：占用部分资源的线程进一步申请其他资源时，如果申请不到，可以主动释放它占有的资源。
+3. **破坏循环等待条件** ：靠按序申请资源来预防。按某一顺序申请资源，释放资源则反序释放。破坏循环等待条件。
+
+ sleep() 方法和 wait() 方法区别和共同点
+
+区别:sleep（）方法没有释放锁，wait方法释放锁
+
+- 两者都可以暂停线程的执行。
+- `wait()` 通常被用于线程间交互/通信，`sleep() `通常被用于暂停执行。
+- `wait()` 方法被调用后，线程不会自动苏醒，需要别的线程调用同一个对象上的 `notify() `或者 `notifyAll()` 方法。`sleep() `方法执行完成后，线程会自动苏醒。或者可以使用 `wait(long timeout)` 超时后线程会自动苏醒。
+
+为什么我们调用 start() 方法时会执行 run() 方法，为什么我们不能直接调用 run() 方法？
+
+new 一个 Thread，线程进入了新建状态。调用 `start()`方法，会启动一个线程并使线程进入了就绪状态，当分配到时间片后就可以开始运行了。 `start()` 会执行线程的相应准备工作，然后自动执行 `run()` 方法的内容，这是真正的多线程工作。 但是，直接执行 `run()` 方法，会把 `run()` 方法当成一个 main 线程下的普通方法去执行，并不会在某个线程中执行它，所以这并不是多线程工作。
+
+**总结： 调用 `start()` 方法方可启动线程并使线程进入就绪状态，直接执行 `run()` 方法的话不会以多线程的方式执行。
+
+
+
+<h5>synchronozed
+
+synchronized关键字解决的是多个线程之间访问资源的同步性，synchronized关键字可以保证被它修饰的方法或者是diamond块只有一个线程执行。
+
+使用方式。
+
+修饰实列方法，作用于当前对象实列枷锁，进入同步代码块之前要获得当前实列对象的锁，
+
+修饰静态方法:也就是给当前类加锁，会作用于类的所有对象实例 ，进入同步代码前要获得 当前 class 的锁
+
+修饰代码块：指定加锁对象，对给定对象/类加锁。`synchronized(this|object)` 表示进入同步代码库前要获得给定对象的锁。`synchronized(类.class)` 表示进入同步代码前要获得 当前 class 的锁.
+
+synchronized` 关键字加到 `static` 静态方法和 `synchronized(class)` 代码块上都是是给 Class 类上锁。
+
+synchronized` 关键字加到实例方法上是给对象实例上锁。
+
+尽量不要使用 `synchronized(String a)` 因为 JVM 中，字符串常量池具有缓存功能！
+
+单例模式了解吗？
+
+```java
+public class Singleton {
+//但是由于 JVM 具有指令重排的特性，执行顺序有可能变成 1->3->2。使用 `volatile` 可以禁止 JVM 的指令重排，保证在多线程环境下也能正常运行。
+    private volatile static Singleton uniqueInstance;
+
+    private Singleton() {
+    }
+
+    public  static Singleton getUniqueInstance() {
+       //先判断对象是否已经实例过，没有实例化过才进入加锁代码
+        if (uniqueInstance == null) {
+            //类对象加锁
+            synchronized (Singleton.class) {
+                if (uniqueInstance == null) {
+                    uniqueInstance = new Singleton();
+                }
+            }
+        }
+        return uniqueInstance;
+    }
+}
+```
+
+
+
+构造方法本身可以就是线程安全的不存在同步构造方法一说。
+
+
+
+<h5>volatile 关键字
+
+volatile` 关键字 除了防止 JVM 的指令重排 ，还有一个重要的作用就是保证变量的可见性。
+
+并发的三个特性:
+
+```java
+1. 原子性: 一次操作或者多次操作，要么所有的操作全部都得到执行并且不会受到任何因素的干扰而中断，要么都不执行。`synchronized` 可以保证代码片段的原子性。
+2. 可见性 ：当一个线程对共享变量进行了修改，那么另外的线程都是立即可以看到修改后的最新值。`volatile` 关键字可以保证共享变量的可见性。
+3. 有序性 ：代码在执行的过程中的先后顺序，Java 在编译器以及运行期间的优化，代码的执行顺序未必就是编写代码时候的顺序。`volatile` 关键字可以禁止指令进行重排序优化。
+```
+
+volatile和synchronized的区别
+
+volatitle的线程同步的轻量级实现，所以volatile性能比synchronized关键字要好，但是volatile关键字只能用于变量而synchronized关键字可以修饰方法以及代码块。
+
+valatile关键字能够保证数据的可见性，但不能保证数据的原子性。synchronized关键字两者都能保证。
+
+valatile关键字解决的是变量在线程之间的可见性，而synchronized关键字解决的是多线程之间访问资源的同步性。
+
+
+
+
+
+<h5>ThreadLocal
+
+让每一个线程绑定自己的值，可以将ThreadLocal类形象的比喻程存在数据的盒子，盒子中可以存储每一个线程的私有数据。
+
+如果你创建了一个ThreadLocal变量，那么访问这个变量的每一个线程都会有这个变量的本地副本。这也是ThreadLocal变量名的由来，它们可以使用get(),和set()方法来获取默认值或将其值更改位当前线程所存的副本的值，从而避免了线程安全问题。
+
+内存泄漏问题
+
+ThreadLocalMap中使用的key为ThreadLocal的弱引用，而value是强引用，所以，如果在ThreadLocal没有被外部强引用的情况下，在垃圾回收的时候，key会被清理，而value不会被清理，这样依赖，ThreadLocalMap中就会出现key为nukl的Entry，假如我们不做措施的话，value永远无法被GC回收，这个时候就可能会产生内存泄漏，ThreadLocalMap实现中已经考虑了这种请求，在调用set(),get（），remove（）方法的时候，会被亲历掉key为null的记录，使用完ThreadLcoal方法后最好调用remove().
+
+
+
+
+
+<h5>线程池
+
+池化技术想必大家已经屡见不鲜了，线程池、数据库连接池、Http 连接池等等都是对这个思想的应用。池化技术的思想主要是为了减少每次获取资源的消耗，提高对资源的利用率。
+
+ 线程池的好处：
+
+降低资源消耗，提高响应速度，提高线程的可管理性。
+
+实现runable接口和callable接口的区别。
+
+callable可以返回结果或抛出异常。
+
+所以，如果任务不需要返回结果或抛出异常推荐使用 **`Runnable` 接口** ，这样代码看起来会更加简洁。
+
+工具类 `Executors` 可以实现将 `Runnable` 对象转换成 `Callable` 对象。（`Executors.callable(Runnable task)` 或 `Executors.callable(Runnable task, Object result)`）。
+
+
+
+执行 execute()方法和 submit()方法的区别是什么呢？
+
+执行execute方法提交不需要返回值的任务，无法判断任务是否被线程池执行执行成功。
+
+submit()方法用于提交需要返回值的任务，线程池会返回一个Future类型的对象，听过这个对象可以判断任务是否执行成功。
+
+如何创建线程池
+
+《阿里巴巴 Java 开发手册》中强制线程池不允许使用 Executors 去创建，而是通过 ThreadPoolExecutor 的方式，这样的处理方式让写的同学更加明确线程池的运行规则，规避资源耗尽的风险。
+
+方式1：通过构造方法。
+
+方式2:executor框架工具类Executors 
+
+我们可以创建三种类型的 ThreadPoolExecutor：
+
+**FixedThreadPool** ： 该方法返回一个固定线程数量的线程池。该线程池中的线程数量始终不变。当有一个新的任务提交时，线程池中若有空闲线程，则立即执行。若没有，则新的任务会被暂存在一个任务队列中，待有线程空闲时，便处理在任务队列中的任务。
+
+**SingleThreadExecutor：** 方法返回一个只有一个线程的线程池。若多余一个任务被提交到该线程池，任务会被保存在一个任务队列中，待线程空闲，按先入先出的顺序执行队列中的任务。
+
+**CachedThreadPool：** 该方法返回一个可根据实际情况调整线程数量的线程池。线程池的线程数量不确定，但若有空闲线程可以复用，则会优先使用可复用的线程。若所有线程均在工作，又有新的任务提交，则会创建新的线程处理任务。所有线程在当前任务执行完毕后，将返回线程池进行复用。
+
+ThreadPoolExecutor三个重要参数:corePoolSize：核心·线程数定义最小可以同时运行的数量。
+
+maximumPoolSize：当对列中存放的任务达到队列的容量的时候，可以同时运行的线程数量变为最大线程数。
+
+workQueue：当新任务来的时候会先判断当前运行的线程数量是否达到了核心线程，如果达到的话，新任务就会被存放在对剋中。
+
+1. **`keepAliveTime`**:当线程池中的线程数量大于 `corePoolSize` 的时候，如果这时没有新的任务提交，核心线程外的线程不会立即销毁，而是会等待，直到等待的时间超过了 `keepAliveTime`才会被回收销毁；
+2. **`unit`** : `keepAliveTime` 参数的时间单位。
+3. **`threadFactory`** :executor 创建新线程的时候会用到。
+4. **`handler`** :饱和策略。关于饱和策略下面单独介绍一下。
+
+ThreadPoolExecutor.AbortPolicy`：** 抛出 `RejectedExecutionException`来拒绝新任务的处理。
+
+
+
+<h5>Atomic 原子类 略
+
+AQS略
+
+
+
+<h5>堆，方法区
+
+堆和方法区是所有线程共享的资源，堆是用于存放新建的对象，方法区主要用于存放已被加载的类信息，常量，静态变量，即时编译器编译后代码等数据。
+
+
+
+
+
+<h5>反射
+
+1.获取class对象的四种方式
+
+```java
+Class alunbarClass = TargetObject.class;
+```
+
+```java
+Class alunbarClass1 = Class.forName("cn.javaguide.TargetObject");
+```
+
+```java
+TargetObject o = new TargetObject();
+Class alunbarClass2 = o.getClass();
+```
+
+```java
+ClassLoader.getSystemClassLoader().loadClass("cn.javaguide.TargetObject");
+```
+
+
+
+反射的基本操作
+
+```java
+package cn.javaguide;
+
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+
+public class Main {
+    public static void main(String[] args) throws ClassNotFoundException, NoSuchMethodException, IllegalAccessException, InstantiationException, InvocationTargetException, NoSuchFieldException {
+        /**
+         * 获取 TargetObject 类的 Class 对象并且创建 TargetObject 类实例
+         */
+        Class<?> targetClass = Class.forName("cn.javaguide.TargetObject");
+        TargetObject targetObject = (TargetObject) targetClass.newInstance();
+        /**
+         * 获取 TargetObject 类中定义的所有方法
+         */
+        Method[] methods = targetClass.getDeclaredMethods();
+        for (Method method : methods) {
+            System.out.println(method.getName());
+        }
+
+        /**
+         * 获取指定方法并调用
+         */
+        Method publicMethod = targetClass.getDeclaredMethod("publicMethod",
+                String.class);
+
+        publicMethod.invoke(targetObject, "JavaGuide");
+
+        /**
+         * 获取指定参数并对参数进行修改
+         */
+        Field field = targetClass.getDeclaredField("value");
+        //为了对类中的参数进行修改我们取消安全检查
+        field.setAccessible(true);
+        field.set(targetObject, "JavaGuide");
+
+        /**
+         * 调用 private 方法
+         */
+        Method privateMethod = targetClass.getDeclaredMethod("privateMethod");
+        //为了调用private方法我们取消安全检查
+        privateMethod.setAccessible(true);
+        privateMethod.invoke(targetObject);
+    }
+}
+
+
+```
 
