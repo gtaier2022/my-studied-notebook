@@ -947,3 +947,234 @@ public class Main {
 
 ```
 
+
+
+
+
+
+
+<h5>集合
+
+概述:
+集合也叫容器，主要是由两大接口的派生而来。
+
+Collection接口：存放单一元素。[List,,Set,Queue]
+
+Map接口:存放键值对
+
+
+
+List, Set, Queue, Map 四者的区别
+
+List:存放元素有序，可重复。
+
+Set:存放元素无序，不可重复。
+
+Queue[排队]按特地的规则来确定先后顺序，存储元素是有序的可重复的。
+
+Map:使用键值对存储，key无序，不可重复，value是无序的，可重复的。每一个键映射一个值。
+
+
+
+集合框架底层数结构：
+ArrayList:数组
+
+Vecotor：数组
+
+LinkedList：双向链表
+
+HashSet：基于HashMap实现，底层采用HashMap来保存元素。
+
+TreeSet:（有序，唯一）:红黑树(自平衡的排序二叉树)。
+
+PriorityQueue:数组
+
+ArrayQueue:数组+双指针
+
+HashMap:数组+链表
+
+Hashtable:数组+链表
+
+TreeMap:红黑树
+
+根据集合的特点来选用集合，根据键值对获取到元素值时就选用Map接口下的集合。需要排序就选用TreeMap。不需要排队就选HashMap，需要保证线程安全就选用ConcurrentHashMap
+
+只需要存放的时候选Collection接口的集合，需要保证元素唯一就选Set
+
+不需要就选用List
+
+
+
+为什么要哦使用集合：
+
+在没有集合以前，数组是储存数据的容器，但数据一旦声明出来之后，其长度不可变，声明数组的类型也决定了存储数据的类型。[类型单一，有序，可重复，长度一定，特点单一] 集合就是克服上面的问题而产生的。
+
+
+
+Arraylist 和 Vector 的区别
+
+ArrayList 数组,线程不安全
+
+Vector 数组 线程安全。  
+
+
+
+Arraylist [数组] [采用尾插法]与 LinkedList[双向链表] 区别
+
+都不能保证线程安全
+
+AarrayList注册快速随机访问[get(int index)]
+
+LinkedList不支持高效的随机访问。
+
+我们一般在项目中不会使用LinkedList
+
+
+
+
+
+comparable 和 Comparator 的区别[]
+
+Comparable接口 compareTo(Object obj)用来排序
+
+Comparator 接口compare(Object obj1, Object obj2)方法用来排序
+
+
+
+无序性和不可重复性的含义是什么
+
+无序性:无序性不等于随机性，无序性是指存储数据在底层数组中并非按照数组的索引添加的顺序，而是根据数据hash值只决定的
+
+不可重复性:不可重复性是指添加元素是指按照equals()判断时，返回false，需要同时重写equals()方法和HashCode()方法。
+
+
+
+
+
+比较 HashSet[哈希表]、LinkedHashSet[链表+hash表] 和 TreeSet[红黑树] 三者的异同
+
+1.都是Set接口的实现类，都能保证元素唯一，都不能保证线程安全。
+
+Queue [先进先出]与 Deque 的区别
+
+Queue是单端队列,只能从一端插入元素，另一端删除元素。
+
+Deque双端队列，在队列两端都可以插入或删除元素。
+
+
+
+HashMap[非线程安全] 和 Hashtable [被淘汰了，不推荐，线程安全[ConcurrentHashMap]]的区别
+
+HashMap null为key允许一个 null为value允许多个。HashTable不允许key和value为null
+
+底层数据结构HashMap[链表+数组=>红黑树[8,64]]
+
+HashMap 和 HashSet 区别
+
+HashSet底层基于HashMap.是实现了几个方法[clone();writeObject;readObject]
+
+
+
+
+
+
+
+HashMap 和 TreeMap 区别
+
+TreeMap多了集中的元素根据键排序的能力以及对集合内元素的搜索能力。
+
+
+
+
+
+当你把对象加入`HashSet`时，`HashSet` 会先计算对象的`hashcode`值来判断对象加入的位置，同时也会与其他加入的对象的 `hashcode` 值作比较，如果没有相符的 `hashcode`，`HashSet` 会假设对象没有重复出现。但是如果发现有相同 `hashcode` 值的对象，这时会调用`equals()`方法来检查 `hashcode` 相等的对象是否真的相同。如果两者相同，`HashSet` 就不会让加入操作成功。
+
+
+
+HashMap 多线程操作导致死循环问题[使用ConcurrentHashMap ]
+
+
+
+集合判空[isEmpty()]
+
+
+
+
+
+集合转 Map[java.util.stream.Collectors.toMap()]
+
+在使用 `java.util.stream.Collectors` 类的 `toMap()` 方法转为 `Map` 集合时，一定要注意当 value 为 null 时会抛 NPE 异常。
+
+
+
+
+
+集合遍历[不要在 foreach 循环里进行元素的 `remove/add` 操作。remove 元素请使用 `Iterator` 方式，如果并发操作，需要对 `Iterator` 对象加锁。]
+
+
+
+Java8 开始，可以使用 `Collection#removeIf()`方法删除满足特定条件的元素.
+
+
+
+集合去重
+
+可以利用 `Set` 元素唯一的特性，可以快速对一个集合进行去重操作，避免使用 `List` 的 `contains()` 进行遍历去重或者判断包含操作。
+
+```java
+// Set 去重代码示例
+public static <T> Set<T> removeDuplicateBySet(List<T> data) {
+
+    if (CollectionUtils.isEmpty(data)) {
+        return new HashSet<>();
+    }
+    return new HashSet<>(data);
+}
+
+// List 去重代码示例
+public static <T> List<T> removeDuplicateByList(List<T> data) {
+
+    if (CollectionUtils.isEmpty(data)) {
+        return new ArrayList<>();
+
+    }
+    List<T> result = new ArrayList<>(data.size());
+    for (T current : data) {
+        if (!result.contains(current)) {
+            result.add(current);
+        }
+    }
+    return result;
+}
+
+```
+
+
+
+集合转数组[使用集合转数组的方法，必须使用集合的 `toArray(T[] array)`，传入的是类型完全一致、长度为 0 的空数组。]
+
+```java
+String [] s= new String[]{
+    "dog", "lazy", "a", "over", "jumps", "fox", "brown", "quick", "A"
+};
+List<String> list = Arrays.asList(s);
+Collections.reverse(list);
+//没有指定类型的话会报错
+s=list.toArray(new String[0]);
+```
+
+数组转集合
+
+用工具类 `Arrays.asList()` 把数组转换成集合时，不能使用其修改集合相关的方法， 它的 `add/remove/clear` 方法会抛出 `UnsupportedOperationException` 异常。
+
+1、`Arrays.asList()`是泛型方法，传递的数组必须是对象数组，而不是基本类型。
+
+2、使用集合的修改方法: `add()`、`remove()`、`clear()`会抛出异常。
+
+
+
+Integer [] myArray = { 1, 2, 3 };
+List myList = Arrays.stream(myArray).collect(Collectors.toList());
+//基本类型也可以实现转换（依赖boxed的装箱操作）
+int [] myArray2 = { 1, 2, 3 };
+List myList = Arrays.stream(myArray2).boxed().collect(Collectors.toList());
